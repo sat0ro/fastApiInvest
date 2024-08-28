@@ -10,7 +10,7 @@ from app import crypto
 logging.basicConfig(level=logging.INFO)
 
 
-app = FastAPI('FastAPI Investment App')
+app = FastAPI(title='FastAPI Investment App')
 
 @app.on_event('startup')
 async def startup():
@@ -44,7 +44,7 @@ async def register_user(user: schemas.UserCreate):
     if not user:
         raise HTTPException(status_code=400, detail='User is empty')
     
-    logging.info(f"Регистрация пользователя: {user.username}")
+    logging.info(f"Registration user: {user.username}")
     query = models.users.select().where(models.users.c.username == user.username)
     existing_user = await database.fetch_one(query)
     
@@ -106,25 +106,12 @@ async def add_cryptos(symbol: str, user: schemas.User):
 
 @app.get('/my_cryptos')
 async def get_cryptos(user: schemas.User):
-    if user is None:
-        raise HTTPException(status_code=404, detail='User not found')
-    
     query = models.cryptocurrencies.select().where(models.cryptocurrencies.c.user_id == user.id)
     user_cryptos = await database.fetch_all(query)
     
-    if user_cryptos is None:
-        raise HTTPException(status_code=404, detail='Cryptocurrencies not found')
-    
     result = []
     for crypto_item in user_cryptos:
-        if crypto_item is None:
-            raise HTTPException(status_code=404, detail='Cryptocurrency not found')
-        
         price = crypto.get_crypto_price(crypto_item['symbol'])
-        
-        if price is None:
-            raise HTTPException(status_code=404, detail='Price not found')
-        
         result.append({
             'name': crypto_item['item'],
             'symbol': crypto_item['symbol'],
