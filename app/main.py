@@ -1,22 +1,36 @@
-import re
+import logging
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import engine, database
 from app import models, schemas, auth
 from app import crypto
 
+
+logging.basicConfig(level=logging.INFO)
+
+
 app = FastAPI()
 
 @app.on_event('startup')
 async def startup():
-    await database .connect()
-    
+    try:
+        await database.connect()
+        logging.info("Подключение к базе данных успешно!")
+    except Exception as e:
+        logging.info(f"Ошибка при подключении к базе данных: {e}")
+
 @app.on_event('shutdown')
 async def shutdown():
-    await database.disconnect()
+    try:
+        await database.disconnect()
+        logging.info("Отключение от базы данных успешно!")
+    except Exception as e:
+        logging.info(f"Ошибка при отключении от базы данных: {e}")
     
 @app.post('/register', response_model = schemas.User)
 async def register_user(user: schemas.UserCreate):
+    logging.info(f"Регистрация пользователя: {user.username}")
     query = models.users.select().where(models.users.c.username == user.username)
     existing_user = await database.fetch_one(query)
     
@@ -27,14 +41,14 @@ async def register_user(user: schemas.UserCreate):
     query = models.users.insert(username=user.username, hashed_password=hashed_password)
     last_record_id = await database.execute(query)
     
-    return schemas.User(id=last_record_id, username=user.username)
+    return schemas.User(id=last_record_id, username=user.username, status=200)
 
 @app.post('/token', response_model=schemas.Token)
 async def login_for_access_token(form_data: schemas.UserCreate):
     query = models.users.select().where(models.users.c.username == form_data.username)
     user = await database.fetch_one(query)
     
-    if not user or not auth.verify_password(form_data.password, user['haashed_password']):
+    if not user or not auth.verify_password(form_data.password, user['hashed_password']):
         raise HTTPException(status_code=400, detail='Invalid username or password')
     
     access_token = auth.create_access_token(data={'sub':user['username']})
